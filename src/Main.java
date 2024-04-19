@@ -1,9 +1,9 @@
-import org.w3c.dom.Node;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.StringTokenizer;
 
 public class Main {
     static int N, M;
@@ -16,69 +16,84 @@ public class Main {
     // 좌표 클래스
     static class Point {
         int x, y, distance;
+        boolean buf;
 
-        Point(int x, int y, int distance) {
+        Point(int x, int y, int distance, boolean buf) {
             this.x = x;
             this.y = y;
             this.distance = distance;
+            this.buf = buf;
         }
     }
 
-    // 드래곤에게 여신의 가호 버프를 받았는지 확인하는 함수
-    static boolean isBlessed(int x, int y) {
-        return dungeon[x][y] == 2;
-    }
-
-    // 해당 위치로 이동 가능한지 확인하는 함수
-    static boolean isValid(int x, int y) {
+    static boolean isValidMap(int x, int y) {
         return x >= 0 && x < N && y >= 0 && y < M;
     }
 
     // BFS를 이용한 최단 거리 계산 함수
-    static int shortestPath(int[] sp, int[] ep) {
+    static int shortestPath() {
         Queue<Point> que = new LinkedList<>();
         boolean[][] visit = new boolean[N][M];
-        que.add(new Point(sp[0], sp[1], 0));
+        que.add(new Point(0, 0, 0, false));
         visit[0][0] = true;
         while (!que.isEmpty()) {
             Point po = que.poll();
 
-            if (po.x == ep[0] && po.y == ep[1]) {
+//            if (dungeon[po.y][po.x] == 0 || dungeon[po.y][po.x] == 3) continue;
+            if (po.x == N-1 && po.y == M-1) {
                 return po.distance;
             }
+
+
+            if (dungeon[po.x][po.y] == 2) {
+                // 여신의 석상을 만난 경우, 여신의 가호를 얻음
+                que = new LinkedList<>();
+                visit = new boolean[N][M];
+                que.add(new Point(po.x, po.y, po.distance, true));
+                visit[po.x][po.y] = true;
+                po = que.poll();
+            }
+//            if (dungeon[po.y][po.x] == 0) continue;
+//            if (!bufFlag && dungeon[po.y][po.x] == 3) continue;
 
             for (int i = 0; i < 4; i++) {
                 int nx = po.x + dirX[i];
                 int ny = po.y + dirY[i];
 
-                if (ny < 0 || nx < 0 || nx > N - 1 || ny > M - 1) continue;
-                if (visit[nx][ny] || (dungeon[nx][ny] != 1 && dungeon[nx][ny] != 4 && dungeon[nx][ny] != 2 && dungeon[nx][ny] != 3)) continue;
+                if (!isValidMap(nx, ny)) continue;
+                if (visit[nx][ny]) continue;
+                if (dungeon[nx][ny] == 0) continue;
+                if (!po.buf && dungeon[nx][ny] == 3) continue;
 
-                // 드래곤의 불에 의한 검사
-                if (dungeon[nx][ny] == 3 && !(isBlessed(nx, ny) || isBlessed(po.x, po.y))) {
-                    // 여신의 가호를 받은 위치를 거쳐왔지 않고 드래곤의 불에 의해 막힌 경우 이동 불가
-                    continue;
-                }
-                boolean flag = false;
-                int iceStep = 1;
-                while (dungeon[nx][ny] == 4 ) {
-                    nx += dirX[i];
-                    ny += dirY[i];
-                    if(!isValid(nx, ny) || dungeon[nx][ny] == 3 || dungeon[nx][ny] == 0){
-                        nx -= dirX[i];
-                        ny -= dirY[i];
-                        visit[nx][ny] = true;
-                        flag = true;
-                        break;
+
+                if (dungeon[nx][ny] == 4) {
+                    po.buf = false;
+                    int iceStep = 1;
+                    boolean procFlag = false;
+                    while (dungeon[nx][ny] == 4) {
+                        nx += dirX[i];
+                        ny += dirY[i];
+                        if (!isValidMap(nx, ny)) break;
+                        if (!visit[nx][ny]) {
+                            visit[nx][ny] = true;
+                            procFlag = true;
+                        }
+                        if (dungeon[nx][ny] == 3 || dungeon[nx][ny] == 0) {
+                            nx = nx - dirX[i];
+                            ny = ny - dirY[i];
+                            break;
+                        }
+                        iceStep++;
                     }
-                    visit[nx][ny] = true;
-                    iceStep++;
+                    if (procFlag) {
+                        que.add(new Point(nx, ny, po.distance + iceStep, po.buf));
+                    }
+                } else {
+                    if (!visit[nx][ny]) {
+                        visit[nx][ny] = true;
+                        que.add(new Point(nx, ny, po.distance + 1, po.buf));
+                    }
                 }
-                if(flag) continue;
-
-
-                visit[nx][ny] = true;
-                que.add(new Point(nx, ny, po.distance + iceStep));
 
             }
 
@@ -88,7 +103,7 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
 
-        System.setIn(new java.io.FileInputStream("src/input.txt"));
+//        System.setIn(new java.io.FileInputStream("src/input.txt"));
 
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         StringTokenizer stinit = new StringTokenizer(br.readLine(), " ");
@@ -98,39 +113,15 @@ public class Main {
         M = Integer.parseInt(stinit.nextToken());
         dungeon = new int[N][M];
 
-        int blessed[] = null;
         // 던전 구성 입력 받기
         for (int i = 0; i < N; i++) {
             stinit = new StringTokenizer(br.readLine(), " ");
             for (int j = 0; j < M; j++) {
                 dungeon[i][j] = Integer.parseInt(stinit.nextToken());
-                if (dungeon[i][j] == 2) {
-                    blessed = new int[]{i, j};
-                }
             }
         }
 
-        // BFS 실행하여 결과 출력
-        int sum = 0;
-        int sd = shortestPath(new int[]{0, 0}, new int[]{N - 1, M - 1});
-        if (sd == -1) {
-            sd = shortestPath(new int[]{0, 0}, new int[]{blessed[0], blessed[1]});
-            if (sd == -1) {
-                sum = -1;
-            } else {
-                sum = sd;
-                blessedFlag = true;
-                sd = shortestPath(new int[]{blessed[0], blessed[1]}, new int[]{N - 1, M - 1});
-                if(sd == -1){
-                    sum = -1;
-                }else{
-                    sum += sd;
-                }
-
-            }
-        } else {
-            sum = sd;
-        }
-        System.out.println(sum);
+        int sd = shortestPath();
+        System.out.println(sd);
     }
 }
