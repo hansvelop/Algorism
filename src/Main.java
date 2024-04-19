@@ -24,6 +24,16 @@ public class Main {
         }
     }
 
+    // 드래곤에게 여신의 가호 버프를 받았는지 확인하는 함수
+    static boolean isBlessed(int x, int y) {
+        return dungeon[x][y] == 2;
+    }
+
+    // 해당 위치로 이동 가능한지 확인하는 함수
+    static boolean isValid(int x, int y) {
+        return x >= 0 && x < N && y >= 0 && y < M;
+    }
+
     // BFS를 이용한 최단 거리 계산 함수
     static int shortestPath(int[] sp, int[] ep) {
         Queue<Point> que = new LinkedList<>();
@@ -37,17 +47,38 @@ public class Main {
                 return po.distance;
             }
 
-//            if (dungeon[po.y][po.x] == 0 || dungeon[po.y][po.x] == 3) continue;
-
             for (int i = 0; i < 4; i++) {
                 int nx = po.x + dirX[i];
                 int ny = po.y + dirY[i];
 
                 if (ny < 0 || nx < 0 || nx > N - 1 || ny > M - 1) continue;
-                if (visit[nx][ny] || (dungeon[nx][ny] != 1 && dungeon[nx][ny] != 4 && dungeon[nx][ny] != 2)) continue;
+                if (visit[nx][ny] || (dungeon[nx][ny] != 1 && dungeon[nx][ny] != 4 && dungeon[nx][ny] != 2 && dungeon[nx][ny] != 3)) continue;
+
+                // 드래곤의 불에 의한 검사
+                if (dungeon[nx][ny] == 3 && !(isBlessed(nx, ny) || isBlessed(po.x, po.y))) {
+                    // 여신의 가호를 받은 위치를 거쳐왔지 않고 드래곤의 불에 의해 막힌 경우 이동 불가
+                    continue;
+                }
+                boolean flag = false;
+                int iceStep = 1;
+                while (dungeon[nx][ny] == 4 ) {
+                    nx += dirX[i];
+                    ny += dirY[i];
+                    if(!isValid(nx, ny) || dungeon[nx][ny] == 3 || dungeon[nx][ny] == 0){
+                        nx -= dirX[i];
+                        ny -= dirY[i];
+                        visit[nx][ny] = true;
+                        flag = true;
+                        break;
+                    }
+                    visit[nx][ny] = true;
+                    iceStep++;
+                }
+                if(flag) continue;
+
 
                 visit[nx][ny] = true;
-                que.add(new Point(nx, ny, po.distance + 1));
+                que.add(new Point(nx, ny, po.distance + iceStep));
 
             }
 
